@@ -93,6 +93,41 @@ Use `Authorization: Bearer <token>` for protected endpoints. Patient sessions re
 
 Staff and patient sessions are kept separate by role and protected frontend routes. The frontend stores the JWT in `sessionStorage` (not `localStorage`), so it is cleared when the browser tab session ends, but JavaScript running on the origin can still access it. The patient JWT contains a random contact-session subject rather than phone or patient details. Patient display data otherwise remains in memory. Logout removes the token in the browser; it is not server-side revocation, and a copied token remains valid until expiry.
 
+## LIS CSV imports
+
+Authenticated staff can open **LIS Report Import** from the staff dashboard. Upload a `.csv` file to preview grouped orders and row-level validation results; review the preview and explicitly confirm to commit the valid orders. A preview is stored server-side for 30 minutes, is tied to the staff account that uploaded it, and can be committed once. Uploads are held in memory (not saved as temporary files), limited to 2 MB and 5,000 data rows.
+
+The CSV header must contain these columns:
+
+```csv
+orderId,patientId,patientName,mobile,doctorName,testName,result,unit,referenceMin,referenceMax,status
+ORD-71204,DEMO-LIS-PAT-001,Lakshmi Prasanna K,9000000011,Dr. S. Ramanaiah,Haemoglobin,10.2,g/dL,12.0,15.5,Ready
+ORD-71219,DEMO-LIS-PAT-002,Venkata Rao M,9000000012,Dr. P. Anitha,LDL Cholesterol,142,mg/dL,0,100,Processing
+ORD-71233,DEMO-LIS-PAT-003,Farzana Begum,9000000013,Dr. K. Sure,Potassium,6.8,mmol/L,3.5,5.1,Ready
+```
+
+The matching synthetic example file is [`sample-data/lis-demo.csv`](./sample-data/lis-demo.csv). Use one row per test; rows with the same `orderId` and patient, doctor and status are grouped into one order and report. Mobile numbers must be 10-digit Indian numbers; numeric results and reference ranges must be valid with `referenceMin <= referenceMax`. Status must be `Processing`, `Ready` or `Cancelled`. The import preserves the provided numeric values and does not infer clinical result classifications.
+
+Patients are matched by `patientId`, never by mobile alone. Existing IDs with conflicting names or numbers are rejected without overwriting existing patient data. Existing order IDs are skipped, as are race-time duplicate order insertions. Doctors are deduplicated using a deterministic ID derived from their normalized name. Each order has at most one report, and imported reports are not signed. Validation failures are available in the preview and are recorded in import history after commit; order/report writes are recovered at the order level if report creation fails.
+
+Staff-only API endpoints (all require `Authorization: Bearer <token>`):
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/import/lis/preview` | Multipart CSV upload in the `file` field; validates and stages server-side preview only |
+| POST | `/api/import/lis/commit` | Commits validated staged rows; JSON body: `{ "previewId": "..." }` |
+| GET | `/api/import/history?page=1&limit=10` | Paginated import summaries, newest first |
+| GET | `/api/import/:id` | One import summary and its row-level errors |
+
+Seed three synthetic patients, doctors, orders and report metadata records with stable IDs (re-running is idempotent):
+
+```sh
+cd backend
+npm run seed:lis
+```
+
+The seed data uses fictional identities and clearly demo-designated mobile values. It is not clinical guidance.
+
 ## Tests
 
 Backend tests use an isolated ephemeral MongoDB instance and do not touch development/production databases:

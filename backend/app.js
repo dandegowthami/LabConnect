@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import { env } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middleware/errorMiddleware.js';
 import authRoutes from './routes/authRoutes.js';
+import importRoutes from './routes/importRoutes.js';
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'LabConnect API is running' });
 });
 app.use('/api/auth', authRoutes);
+app.use('/api/import', importRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 

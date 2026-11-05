@@ -7,6 +7,7 @@ import PatientOTP from '../pages/auth/PatientOTP.jsx';
 import StaffLogin from '../pages/auth/StaffLogin.jsx';
 import PatientDashboard from '../pages/PatientDashboard.jsx';
 import StaffDashboard from '../pages/StaffDashboard.jsx';
+import LISImport from '../pages/import/LISImport.jsx';
 
 export default function AppRoutes() {
   return (
@@ -21,6 +22,7 @@ export default function AppRoutes() {
       </Route>
       <Route element={<ProtectedRoute roles={['staff', 'admin']} />}>
         <Route path="/staff" element={<StaffDashboard />} />
+        <Route path="/staff/import" element={<LISImport />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

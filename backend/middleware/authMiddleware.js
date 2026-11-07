@@ -27,7 +27,12 @@ export async function authenticate(req, res, next) {
 
       req.auth = { sub: user.id, role: user.role, user };
     } else {
-      req.auth = { sub: claims.sub, role: 'patient', contactVerified: true };
+      req.auth = {
+        sub: claims.sub,
+        role: 'patient',
+        contactVerified: true,
+        patientId: typeof claims.patientId === 'string' ? claims.patientId : null
+      };
     }
 
     next();

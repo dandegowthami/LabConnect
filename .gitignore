@@ -10,5 +10,6 @@ logs/
 *.log
 *.tmp
 uploads/
+backend/private-storage/
 .DS_Store
 Thumbs.db

@@ -87,7 +87,7 @@ describe('health and patient OTP', () => {
       otp: sent.body.data.developmentOtp
     });
     expect(response.status).toBe(200);
-    expect(response.body.data.patient).toEqual({ contactVerified: true, mobile: '98******10' });
+    expect(response.body.data.patient).toEqual({ role: 'patient', contactVerified: true, mobile: '98******10' });
     const claims = jwt.verify(response.body.data.token, env.JWT_SECRET);
     expect(claims.role).toBe('patient');
     expect(claims.sub).toMatch(/^patient-contact:/);

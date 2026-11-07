@@ -1,4 +1,4 @@
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -13,6 +13,9 @@ export default function StaffDashboard() {
         <p className="intro">Import laboratory exports and review validated patient orders and report metadata.</p>
         <Link className="primary-button btn w-100 staff-import-link" to="/staff/import">
           LIS Report Import <ArrowRight size={18} aria-hidden="true" />
+        </Link>
+        <Link className="secondary-button btn w-100 staff-import-link" to="/staff/reports">
+          Manage signed reports <FileText size={18} aria-hidden="true" />
         </Link>
         <button className="secondary-button btn w-100" onClick={() => logout()}>Sign out</button>
       </div>

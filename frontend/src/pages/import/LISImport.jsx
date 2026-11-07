@@ -63,6 +63,7 @@ export default function LISImport() {
         <Link className="site-brand" to="/staff"><span className="site-brand-mark">L</span>LabConnect</Link>
         <div className="import-user-actions">
           <span>{user?.name}</span>
+          <Link className="logout-button" to="/staff/reports">Manage reports</Link>
           <button type="button" className="logout-button" onClick={() => logout()}><LogOut size={17} /> Sign out</button>
         </div>
       </header>

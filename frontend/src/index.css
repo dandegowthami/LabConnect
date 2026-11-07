@@ -100,6 +100,72 @@ a { color: #087f7c; font-weight: 650; }
 .dashboard-card .secondary-button:hover { background: #d8eeec; }
 .staff-import-link { margin: 0 0 12px; text-decoration: none; }
 
+.portal-page { min-height: 100vh; background: #f5fbfb; color: #17323c; }
+.portal-header { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 12px clamp(20px, 6vw, 88px); border-bottom: 1px solid #e1ecee; background: #fff; }
+.portal-content { width: min(100% - 36px, 1080px); margin: 0 auto; padding: clamp(26px, 5vw, 52px) 0 64px; }
+.portal-welcome { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 30px; }
+.portal-welcome h1, .report-details h1, .pdf-viewer-heading h1 { font-size: clamp(30px, 5vw, 42px); }
+.portal-welcome .intro { margin-bottom: 0; }
+.portal-security-note { display: inline-flex; align-items: center; gap: 9px; padding: 13px 16px; border: 1px solid #d5e9e5; border-radius: 12px; background: #fff; color: #08716e; font-weight: 650; white-space: nowrap; }
+.portal-logout { display: inline-flex; align-items: center; gap: 8px; border: 0; background: transparent; color: #35525a; font-weight: 650; }
+.portal-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 28px 0; }
+.portal-summary article, .portal-section, .portal-order-card, .portal-empty { padding: clamp(20px, 4vw, 30px); border: 1px solid #e1ecee; border-radius: 16px; background: #fff; box-shadow: 0 10px 32px rgb(22 66 77 / 4%); }
+.portal-summary article { display: grid; gap: 9px; }
+.portal-summary span { color: #60777f; font-size: 15px; }
+.portal-summary strong { color: #087f7c; font-size: 32px; }
+.portal-section { margin-top: 24px; }
+.portal-section-heading, .portal-order-main, .pdf-viewer-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.portal-section-heading h2 { margin: 0; font-size: 27px; }
+.portal-refresh { width: 46px; height: 46px; display: grid; place-items: center; border: 1px solid #cfe0dd; border-radius: 10px; background: #fff; color: #08716e; }
+.portal-order-list { display: grid; gap: 14px; margin-top: 24px; }
+.portal-order-card { box-shadow: none; }
+.portal-order-main h3 { margin: 0; font-size: 19px; }
+.portal-order-main p { margin: 7px 0 0; color: #60777f; }
+.portal-order-main .portal-tests { color: #29444c; }
+.portal-status { padding: 7px 12px; border-radius: 20px; background: #eef2f3; color: #40545a; font-weight: 700; }
+.portal-status.ready { background: #e2f5ee; color: #176444; }
+.portal-status.processing { background: #fff4d8; color: #795619; }
+.portal-status.cancelled { background: #fbe8e8; color: #8d3434; }
+.portal-view-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; text-decoration: none; }
+.portal-pending { margin: 18px 0 0; color: #5d7076; }
+.portal-empty { margin-top: 22px; box-shadow: none; }
+.portal-empty h3 { margin-bottom: 8px; font-size: 19px; }
+.portal-empty p, .portal-empty { color: #60777f; }
+.portal-loading { padding: 48px 20px; text-align: center; color: #526a72; font-size: 18px; }
+.portal-alert { padding: 24px; }
+.portal-alert h2 { font-size: 22px; }
+.portal-alert p { line-height: 1.65; }
+.report-details { margin-top: 20px; }
+.report-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 24px 0; }
+.report-meta div { padding: 14px; border-radius: 10px; background: #f5fbfb; }
+.report-meta dt { margin-bottom: 4px; color: #60777f; font-size: 14px; }
+.report-meta dd { margin: 0; font-weight: 700; }
+.report-results th, .report-results td { padding: 15px 12px; vertical-align: middle; }
+.report-results .result-outside-range { background: #fff4d8; }
+.portal-disclaimer { margin: 12px 0 24px; color: #60777f; font-size: 14px; }
+.report-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.report-actions .primary-button, .report-actions .secondary-button, .confirm-report .primary-button, .pdf-upload-form .primary-button, .portal-alert .secondary-button { min-height: 50px; margin: 0; padding: 0 18px; text-decoration: none; }
+.report-actions .secondary-button, .pdf-viewer-heading .secondary-button { background: #e7f4f3; color: #08716e; text-decoration: none; }
+.report-actions .back-link { margin: 0 0 0 auto; }
+.pdf-viewer-page .portal-content { width: min(100% - 36px, 1200px); }
+.pdf-viewer-heading { margin-bottom: 20px; }
+.pdf-viewer-heading .secondary-button { min-height: 48px; margin: 0; padding: 0 16px; }
+.pdf-frame { width: 100%; height: min(78vh, 1050px); min-height: 520px; border: 1px solid #d9e5e6; border-radius: 12px; background: #fff; }
+.report-management-card { max-width: 860px; padding: clamp(22px, 5vw, 42px); }
+.report-search-form { margin-bottom: 24px; }
+.report-search-form .input-group-text { color: #60777f; background: #fff; }
+.report-select { min-height: 48px; margin-bottom: 22px; }
+.selected-report { padding: 18px; border-radius: 11px; background: #f5fbfb; }
+.selected-report p { margin: 0 0 8px; }
+.selected-report p:last-child { margin-bottom: 0; }
+.pdf-upload-form { display: grid; gap: 12px; margin-top: 24px; }
+.pdf-upload-form .primary-button, .confirm-report .primary-button { justify-self: start; }
+.file-selected { display: flex; align-items: center; gap: 8px; margin: 0; color: #526a72; }
+.upload-progress { width: 100%; height: 12px; accent-color: #087f7c; }
+.confirm-report { margin-top: 22px; padding: 18px; border: 1px solid #d9e9e6; border-radius: 11px; background: #f5fbfb; }
+.confirm-report p { margin: 0 0 14px; line-height: 1.6; }
+.report-search-form .form-control { min-width: 100px; }
+
 .public-page {
   min-height: 100vh;
   padding: 0 clamp(22px, 7vw, 104px);
@@ -344,6 +410,25 @@ a { color: #087f7c; font-weight: 650; }
   .import-layout { grid-template-columns: 1fr; }
   .import-header { padding: 0 20px; }
   .preview-counts { justify-content: flex-start; }
+}
+
+@media (max-width: 620px) {
+  .portal-header { min-height: 68px; padding-inline: 18px; }
+  .portal-content { width: min(100% - 28px, 1080px); }
+  .portal-welcome { display: block; }
+  .portal-security-note { margin-top: 20px; }
+  .portal-summary { grid-template-columns: 1fr; gap: 10px; }
+  .portal-summary article { grid-template-columns: 1fr auto; align-items: center; }
+  .portal-summary strong { font-size: 26px; }
+  .portal-order-main { align-items: flex-start; }
+  .portal-order-main .portal-status { flex: 0 0 auto; font-size: 13px; }
+  .report-meta { grid-template-columns: 1fr; }
+  .report-actions { align-items: stretch; }
+  .report-actions > * { width: 100%; justify-content: center; }
+  .report-actions .back-link { margin: 8px 0 0; }
+  .pdf-viewer-heading { align-items: flex-start; flex-direction: column; }
+  .pdf-frame { min-height: 450px; height: 70vh; }
+  .import-user-actions { flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
 }
 
 @media (max-width: 480px) {

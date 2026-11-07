@@ -45,13 +45,29 @@ describe('authentication screens', () => {
 
   it('validates OTP interaction and submits a six-digit code', async () => {
     api.post.mockResolvedValueOnce({ data: { data: { token: 'signed-token', patient: { role: 'patient' } } } });
-    renderWithContext(<PatientOTP />, ['/patient/otp', { state: { mobile: '9876543210' } }]);
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/patient/otp', state: { mobile: '9876543210' } }]}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/patient/otp" element={<PatientOTP />} />
+            <Route element={<ProtectedRoute roles={['patient']} />}>
+              <Route path="/patient" element={<p>Patient dashboard</p>} />
+            </Route>
+            <Route element={<ProtectedRoute roles={['staff', 'admin']} />}>
+              <Route path="/staff" element={<p>Staff dashboard</p>} />
+            </Route>
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    );
     fireEvent.change(screen.getByLabelText('One-time code'), { target: { value: '123' } });
     fireEvent.click(screen.getByRole('button', { name: /verify and continue/i }));
     expect(await screen.findByRole('alert')).toHaveTextContent('six-digit code');
     fireEvent.change(screen.getByLabelText('One-time code'), { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: /verify and continue/i }));
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/auth/patient/verify-otp', { mobile: '9876543210', otp: '123456' }));
+    expect(await screen.findByText('Patient dashboard')).toBeInTheDocument();
+    expect(screen.queryByText('Staff dashboard')).not.toBeInTheDocument();
   });
 
   it('validates staff login fields', async () => {
@@ -59,6 +75,36 @@ describe('authentication screens', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('valid work email and password');
     expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('takes staff directly to LIS import after successful login', async () => {
+    api.post.mockResolvedValueOnce({
+      data: { data: { token: 'staff-token', user: { id: 'staff-1', role: 'staff' } } }
+    });
+    render(
+      <MemoryRouter initialEntries={['/staff/login']}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/staff/login" element={<StaffLogin />} />
+            <Route element={<ProtectedRoute roles={['staff', 'admin']} />}>
+              <Route path="/staff/import" element={<p>LIS report importer</p>} />
+              <Route path="/staff" element={<p>Staff dashboard</p>} />
+            </Route>
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByLabelText('Work email'), { target: { value: 'staff@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'DemoPassword123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(await screen.findByText('LIS report importer')).toBeInTheDocument();
+    expect(screen.queryByText('Staff dashboard')).not.toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledWith('/auth/staff/login', {
+      email: 'staff@example.com',
+      password: 'DemoPassword123'
+    });
   });
 
   it('redirects unauthenticated users away from protected pages', async () => {

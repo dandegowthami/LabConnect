@@ -24,7 +24,7 @@ export default function StaffLogin() {
     try {
       const response = await api.post('/auth/staff/login', { email: email.trim(), password });
       login(response.data.data.token, response.data.data.user);
-      navigate('/staff', { replace: true });
+      navigate('/staff/import', { replace: true });
     } catch (loginError) {
       setError(loginError.response?.data?.message || 'We could not sign you in. Please try again.');
     } finally {

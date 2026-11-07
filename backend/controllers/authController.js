@@ -118,7 +118,7 @@ export async function verifyPatientOtp(req, res, next) {
       message: 'Mobile number verified',
       data: {
         token,
-        patient: { contactVerified: true, mobile: maskMobile(mobile) }
+        patient: { role: 'patient', contactVerified: true, mobile: maskMobile(mobile) }
       }
     });
   } catch (error) {

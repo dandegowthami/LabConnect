@@ -128,6 +128,28 @@ npm run seed:lis
 
 The seed data uses fictional identities and clearly demo-designated mobile values. It is not clinical guidance.
 
+## Patient portal and private PDF reports
+
+The staff workspace includes **Report management** for associating one validated PDF with an existing report. Staff can search by report ID, inspect its patient/order/test metadata, upload a PDF (maximum 10 MB), then explicitly confirm that the document is signed and ready. Uploading alone never changes a Processing report to Ready, and an existing PDF cannot be silently replaced. The confirmation is an authorized staff attestation; this module does not cryptographically verify a PDF signature.
+
+Uploaded files are validated as PDFs using their content and a PDF parser. In development and tests they are stored under `backend/private-storage/` (or the optional `PDF_STORAGE_DIR` directory), outside the frontend and never served as static files. MongoDB stores an opaque random storage key and upload metadata; API responses do not disclose the key or physical path. Test files use isolated temporary storage directories. The API requires a configured private production storage adapter in production; no cloud adapter is included, and upload/view/download requests return a service-unavailable error there until one is implemented and configured.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/patients/me` | Safe patient profile |
+| GET | `/api/patients/me/orders?page=1&limit=20&sort=newest` | Paginated patient-owned orders |
+| GET | `/api/patients/me/reports?page=1&limit=20` | Paginated patient-owned report summaries |
+| GET | `/api/reports/:reportId` | Detailed report, after ownership/role authorization |
+| GET | `/api/reports/:reportId/view` | Authenticated private PDF stream |
+| GET | `/api/reports/:reportId/download` | Authenticated private PDF download |
+| GET | `/api/staff/reports?search=RPT-...` | Staff report search |
+| POST | `/api/staff/reports/:reportId/upload-pdf` | Staff-only multipart upload (`file` field) |
+| POST | `/api/staff/reports/:reportId/confirm-signed` | Staff-only explicit sign-off and Ready action |
+
+Patient routes filter by the database patient ID in a trusted, identity-bound patient token; they never accept a patient ID from the browser or use a mobile number to select a record. Existing OTP login only verifies phone contact and intentionally issues a contact-only token, because multiple people can share one number. Consequently, patient record endpoints currently fail closed with `403 Patient identity verification is required`; completing the patient dashboard requires a separate identity-verification/selection workflow before issuing an identity-bound token. Do not treat OTP contact verification as patient identity or work around this limitation with a mobile-number lookup. Patient routes and frontend are in place for that later identity integration, but access is not enabled by OTP alone. For identity-bound sessions, report results/details and PDFs are withheld until the report is Ready, signed, and has a valid private PDF; order/report status summaries remain available.
+
+Staff and admin roles may manage PDFs. Patients may access a report or its PDF only when the authenticated patient ID owns it, the report is Ready, and a valid signed PDF is associated. Report upload, sign-off, view, and download actions are recorded as minimal audit events (action, report reference, actor ID and timestamp; no report contents). PDF responses use `Cache-Control: private, no-store` and are never redirected to public URLs.
+
 ## Tests
 
 Backend tests use an isolated ephemeral MongoDB instance and do not touch development/production databases:

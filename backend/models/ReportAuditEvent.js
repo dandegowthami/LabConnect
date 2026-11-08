@@ -4,7 +4,16 @@ const reportAuditEventSchema = new mongoose.Schema({
   action: {
     type: String,
     required: true,
-    enum: ['pdf-uploaded', 'signed-confirmed', 'pdf-viewed', 'pdf-downloaded']
+    enum: [
+      'pdf-uploaded',
+      'signed-confirmed',
+      'pdf-viewed',
+      'pdf-downloaded',
+      'delivery-link-generated',
+      'delivery-link-revoked',
+      'delivery-pdf-viewed',
+      'delivery-pdf-downloaded'
+    ]
   },
   report: { type: mongoose.Schema.Types.ObjectId, ref: 'Report', required: true, index: true },
   actorId: { type: String, required: true },

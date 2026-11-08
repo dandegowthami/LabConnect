@@ -5,6 +5,8 @@ import ReportAuditEvent from '../models/ReportAuditEvent.js';
 import TestOrder from '../models/TestOrder.js';
 import { deletePrivatePdf, openPrivatePdf, storePrivatePdf, validatePdf, validateStoredPdf } from '../services/pdfService.js';
 import { findReportByIdentifier, getReportDetails, isPdfAvailable, listStaffReports } from '../services/reportService.js';
+import { sendReportDelivery } from '../services/deliveryService.js';
+import DeliveryLog from '../models/DeliveryLog.js';
 
 function notFound(res) {
   res.status(404).json({ success: false, message: 'Report not found' });
@@ -166,8 +168,26 @@ export async function confirmReportSigned(req, res, next) {
       res.status(409).json({ success: false, message: 'A cancelled report cannot be marked Ready' });
       return;
     }
+    if (report.signedAt && report.reportStatus === 'Ready') {
+      const delivery = await DeliveryLog.findOne({ reportId: report._id })
+        .sort({ createdAt: -1 })
+        .select('channel destinationMasked status sentAt failureReason createdAt')
+        .lean();
+      res.status(200).json({
+        success: true,
+        message: 'This report was already signed and marked Ready; no duplicate notification was sent',
+        data: {
+          reportId: report.reportId,
+          reportStatus: report.reportStatus,
+          signedAt: report.signedAt,
+          alreadyReady: true,
+          delivery
+        }
+      });
+      return;
+    }
     if (report.signedAt) {
-      res.status(409).json({ success: false, message: 'This report has already been confirmed as signed' });
+      res.status(409).json({ success: false, message: 'This report has already been signed' });
       return;
     }
     await validateStoredPdf(report.pdfStorageKey);
@@ -231,10 +251,34 @@ export async function confirmReportSigned(req, res, next) {
       return;
     }
 
+    let delivery;
+    try {
+      delivery = await sendReportDelivery({
+        reportId: report._id,
+        channel: 'SMS',
+        createdBy: req.auth.sub
+      });
+    } catch {
+      delivery = { status: 'Failed', failureReason: 'The notification could not be prepared; staff can retry delivery' };
+    }
+
     res.status(200).json({
       success: true,
-      message: 'Report marked signed and Ready',
-      data: { reportId: updatedReport.reportId, reportStatus: updatedReport.reportStatus, signedAt }
+      message: delivery.status === 'Sent'
+        ? 'Report marked signed and Ready. Notification was simulated; no real message was sent.'
+        : 'Report marked signed and Ready, but notification failed. Staff can retry delivery.',
+      data: {
+        reportId: updatedReport.reportId,
+        reportStatus: updatedReport.reportStatus,
+        signedAt,
+        delivery: {
+          channel: delivery.channel || 'SMS',
+          destinationMasked: delivery.destinationMasked,
+          status: delivery.status,
+          sentAt: delivery.sentAt,
+          failureReason: delivery.failureReason
+        }
+      }
     });
   } catch (error) {
     next(error);

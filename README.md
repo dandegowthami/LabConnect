@@ -1,6 +1,6 @@
 # LabConnect
 
-LabConnect is the foundation for a healthcare diagnostic report delivery platform. This initial module provides patient phone verification and staff authentication, with protected placeholder dashboards. It does not include report management or claim that a verified phone identifies a specific family member.
+LabConnect is a local development foundation for authenticated staff workflows, LIS imports, private report storage, and OTP-verified expiring report links. Phone verification alone does not identify a specific family member; patient dashboard APIs remain fail-closed until a separate patient identity verification workflow is integrated.
 
 ## Technology
 
@@ -89,7 +89,7 @@ All responses use `{ "success": boolean, "message"?: string, "data"?: object }`.
 | GET | `/api/auth/me` | Return the safe profile for the authenticated token |
 | POST | `/api/auth/logout` | Document client-side sign-out behavior; requires a valid token |
 
-Use `Authorization: Bearer <token>` for protected endpoints. Patient sessions represent verified phone contact and contain no patient ID. There are deliberately no report endpoints or patient-specific authorization claims; a later workflow must establish and authorize patient identity separately, especially for shared family phone numbers.
+Use `Authorization: Bearer <token>` for protected endpoints. Patient sessions represent verified phone contact and contain no patient ID. Patient record endpoints remain fail-closed until a separate identity verification workflow can safely bind a patient ID; report-link access uses its independent one-report OTP grant described below.
 
 Staff and patient sessions are kept separate by role and protected frontend routes. The frontend stores the JWT in `sessionStorage` (not `localStorage`), so it is cleared when the browser tab session ends, but JavaScript running on the origin can still access it. The patient JWT contains a random contact-session subject rather than phone or patient details. Patient display data otherwise remains in memory. Logout removes the token in the browser; it is not server-side revocation, and a copied token remains valid until expiry.
 
@@ -149,6 +149,27 @@ Uploaded files are validated as PDFs using their content and a PDF parser. In de
 Patient routes filter by the database patient ID in a trusted, identity-bound patient token; they never accept a patient ID from the browser or use a mobile number to select a record. Existing OTP login only verifies phone contact and intentionally issues a contact-only token, because multiple people can share one number. Consequently, patient record endpoints currently fail closed with `403 Patient identity verification is required`; completing the patient dashboard requires a separate identity-verification/selection workflow before issuing an identity-bound token. Do not treat OTP contact verification as patient identity or work around this limitation with a mobile-number lookup. Patient routes and frontend are in place for that later identity integration, but access is not enabled by OTP alone. For identity-bound sessions, report results/details and PDFs are withheld until the report is Ready, signed, and has a valid private PDF; order/report status summaries remain available.
 
 Staff and admin roles may manage PDFs. Patients may access a report or its PDF only when the authenticated patient ID owns it, the report is Ready, and a valid signed PDF is associated. Report upload, sign-off, view, and download actions are recorded as minimal audit events (action, report reference, actor ID and timestamp; no report contents). PDF responses use `Cache-Control: private, no-store` and are never redirected to public URLs.
+
+## Secure expiring report delivery
+
+When staff confirm a PDF as signed and Ready, LabConnect automatically creates a cryptographically random 32-byte access link, stores only its SHA-256 hash, and simulates an SMS notification. Link tokens are placed in the URL fragment (`/report-access/#TOKEN`) so browsers do not send them in the initial page request or referrer; the frontend removes the fragment from browser history after loading it. Links are bound to one patient and one report, expire after 72 hours, and a new link revokes prior links and any associated grants. Access requires a five-minute, single-use OTP sent to the mobile number already associated with that exact patient/report link. OTPs are bcrypt-hashed, limited to five attempts and three requests per link per 15 minutes (with additional IP rate limits). Successful verification creates a random hashed access grant that authorizes only the bound report for 15 minutes. Grants are held in page memory, never localStorage.
+
+Notifications use `MockSMSProvider` or `MockWhatsAppProvider` and are simulated; **no real SMS or WhatsApp messages are sent**. The mock API exposes `developmentOtp` only in development/test to support local verification. To deterministically test provider failure, set `LABCONNECT_MOCK_NOTIFICATION_FAILURE=true` in the backend process outside production. Notification messages contain only the secure link and generic report-ready text; they include no test values, diagnoses, or patient name. Raw link tokens and message bodies are not stored in delivery logs. Delivery history includes only masked destinations, channel, provider status/ID and timestamps. Delivery requests are excluded from HTTP access logs to prevent token or patient data leakage.
+
+Staff can use **Secure delivery history** (`/staff/delivery`) to send links to Ready reports, filter delivery logs, retry failed or previous deliveries, and revoke active links. Resending creates a fresh link and invalidates the previous one.
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/delivery/reports/:reportId/generate` | Staff-only link generation and simulated notification; JSON body may select `{ "channel": "SMS" }` or `WhatsApp` |
+| POST | `/api/delivery/reports/:reportId/resend` | Staff-only fresh link and notification retry; previous channel is reused unless provided |
+| POST | `/api/delivery/reports/:reportId/revoke` | Staff-only revoke active links and related access grants |
+| GET | `/api/delivery/logs?page=1&limit=20&status=Sent&channel=SMS&from=...&to=...` | Staff-only filtered, paginated history with masked phone numbers |
+| POST | `/api/delivery/access/request-otp` | Public link validation and report-specific OTP request; JSON body `{ "token": "..." }` |
+| POST | `/api/delivery/access/verify-otp` | Verify OTP and issue a 15-minute report-bound access grant; JSON body `{ "token": "...", "otp": "000000" }` |
+| GET | `/api/delivery/access/report` | Stream the bound private PDF inline; requires `X-Report-Access-Grant` |
+| GET | `/api/delivery/access/report/download` | Download the bound private PDF; requires `X-Report-Access-Grant` |
+
+Local test instructions are unchanged: from `backend/` run `npm test`; from `frontend/` run `npm test` and `npm run build`. For real delivery, implement and configure a production SMS/WhatsApp provider, secure credential storage, delivery callbacks/retries and operational monitoring; the mock adapter is deliberately disabled in production and is not a production messaging integration. Private production PDF storage also remains unconfigured. Patient OTP login remains contact-only and is distinct from report-link OTP; shared mobile numbers do not widen a report access grant.
 
 ## Tests
 

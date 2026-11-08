@@ -6,6 +6,7 @@ import { env } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middleware/errorMiddleware.js';
 import authRoutes from './routes/authRoutes.js';
 import importRoutes from './routes/importRoutes.js';
+import deliveryRoutes from './routes/deliveryRoutes.js';
 import patientRoutes from './routes/patientRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 
@@ -30,7 +31,8 @@ app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev', {
     const requestPath = req.originalUrl.split('?')[0];
     return requestPath.startsWith('/api/patients/me')
       || requestPath.startsWith('/api/reports/')
-      || requestPath.startsWith('/api/staff/reports');
+      || requestPath.startsWith('/api/staff/reports')
+      || requestPath.startsWith('/api/delivery/');
   }
 }));
 
@@ -39,6 +41,7 @@ app.get('/api/health', (req, res) => {
 });
 app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
+app.use('/api/delivery', deliveryRoutes);
 app.use('/api', reportRoutes);
 app.use('/api/import', importRoutes);
 app.use(notFoundHandler);

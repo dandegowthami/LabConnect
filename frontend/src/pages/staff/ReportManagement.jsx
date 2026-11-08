@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, CheckCircle2, FileText, LogOut, Search, Upload } from 'lucide-react';
+import { ArrowLeft, BellRing, CheckCircle2, FileText, LogOut, Search, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import reportService from '../../services/reportService.js';
@@ -86,7 +86,11 @@ export default function ReportManagement() {
     setNotice('');
     try {
       const response = await reportService.confirmSigned(selected.reportId);
-      setNotice(response.data.message);
+      const delivery = response.data.data.delivery;
+      setNotice([
+        response.data.message,
+        ...(delivery ? [`Notification: ${delivery.status}${delivery.failureReason ? ` — ${delivery.failureReason}` : ''}`] : [])
+      ].join(' '));
       await loadReports();
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'The report could not be marked Ready.');
@@ -99,10 +103,11 @@ export default function ReportManagement() {
     <main className="import-page">
       <header className="import-header">
         <Link className="site-brand" to="/staff"><span className="site-brand-mark">L</span>LabConnect</Link>
-        <div className="import-user-actions"><span>{user?.name}</span><button type="button" className="logout-button" onClick={() => logout()}><LogOut size={17} /> Sign out</button></div>
+        <div className="import-user-actions"><span>{user?.name}</span><Link className="logout-button" to="/staff/delivery"><BellRing size={17} /> Delivery</Link><button type="button" className="logout-button" onClick={() => logout()}><LogOut size={17} /> Sign out</button></div>
       </header>
       <div className="import-content">
         <Link className="back-link import-back-link" to="/staff"><ArrowLeft size={17} /> Staff dashboard</Link>
+        <Link className="back-link import-back-link" to="/staff/delivery"><BellRing size={17} /> Delivery management</Link>
         <div className="import-page-title">
           <p className="eyebrow">STAFF WORKSPACE</p>
           <h1>Report management</h1>

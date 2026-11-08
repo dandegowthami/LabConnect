@@ -7,10 +7,13 @@ import request from 'supertest';
 import { PDFDocument } from 'pdf-lib';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import app from '../app.js';
+import AccessToken from '../models/AccessToken.js';
+import DeliveryLog from '../models/DeliveryLog.js';
 import { env } from '../config/env.js';
 import Doctor from '../models/Doctor.js';
 import Patient from '../models/Patient.js';
 import Report from '../models/Report.js';
+import ReportAccessGrant from '../models/ReportAccessGrant.js';
 import ReportAuditEvent from '../models/ReportAuditEvent.js';
 import TestOrder from '../models/TestOrder.js';
 import User from '../models/User.js';
@@ -96,6 +99,9 @@ beforeEach(async () => {
   process.env.PDF_STORAGE_DIR = storageDirectory;
   await Promise.all([
     ReportAuditEvent.deleteMany({}),
+    AccessToken.deleteMany({}),
+    ReportAccessGrant.deleteMany({}),
+    DeliveryLog.deleteMany({}),
     Report.deleteMany({}),
     TestOrder.deleteMany({}),
     Doctor.deleteMany({}),

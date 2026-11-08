@@ -11,6 +11,8 @@ import LISImport from '../pages/import/LISImport.jsx';
 import ReportDetails from '../pages/patient/ReportDetails.jsx';
 import PdfReportViewer from '../pages/patient/PdfReportViewer.jsx';
 import ReportManagement from '../pages/staff/ReportManagement.jsx';
+import ReportAccess from '../pages/patient/ReportAccess.jsx';
+import DeliveryManagement from '../pages/staff/DeliveryManagement.jsx';
 
 export default function AppRoutes() {
   return (
@@ -19,6 +21,8 @@ export default function AppRoutes() {
       <Route path="/register" element={<Register />} />
       <Route path="/patient/login" element={<PatientLogin />} />
       <Route path="/patient/otp" element={<PatientOTP />} />
+      <Route path="/report-access/:token" element={<ReportAccess />} />
+      <Route path="/report-access" element={<ReportAccess />} />
       <Route path="/staff/login" element={<StaffLogin />} />
       <Route element={<ProtectedRoute roles={['patient']} />}>
         <Route path="/patient" element={<Navigate to="/patient/dashboard" replace />} />
@@ -30,6 +34,7 @@ export default function AppRoutes() {
         <Route path="/staff" element={<StaffDashboard />} />
         <Route path="/staff/import" element={<LISImport />} />
         <Route path="/staff/reports" element={<ReportManagement />} />
+        <Route path="/staff/delivery" element={<DeliveryManagement />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -13,25 +13,26 @@ export async function authenticate(req, res, next) {
 
   try {
     const claims = jwt.verify(token, env.JWT_SECRET);
-    if (typeof claims === 'string' || !['patient', 'staff', 'admin'].includes(claims.role)) {
+    if (typeof claims === 'string' || !['patient', 'staff', 'admin', 'pathologist', 'doctor'].includes(claims.role)) {
       res.status(401).json({ success: false, message: 'Invalid authentication token' });
       return;
     }
 
-    if (claims.role === 'staff' || claims.role === 'admin') {
-      const user = await User.findById(claims.sub).select('_id role isActive name email');
+    if (claims.role !== 'patient') {
+      const user = await User.findById(claims.sub).select('_id role isActive name email doctorId');
       if (!user || !user.isActive || user.role !== claims.role) {
         res.status(401).json({ success: false, message: 'Account is inactive or no longer available' });
         return;
       }
 
-      req.auth = { sub: user.id, role: user.role, user };
+      req.auth = { sub: user.id, role: user.role, doctorId: user.doctorId ? String(user.doctorId) : null, user };
     } else {
       req.auth = {
         sub: claims.sub,
         role: 'patient',
         contactVerified: true,
-        patientId: typeof claims.patientId === 'string' ? claims.patientId : null
+        patientId: typeof claims.patientId === 'string' ? claims.patientId : null,
+        contactSessionId: typeof claims.contactSessionId === 'string' ? claims.contactSessionId : null
       };
     }
 

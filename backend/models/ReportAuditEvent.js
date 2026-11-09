@@ -12,7 +12,14 @@ const reportAuditEventSchema = new mongoose.Schema({
       'delivery-link-generated',
       'delivery-link-revoked',
       'delivery-pdf-viewed',
-      'delivery-pdf-downloaded'
+      'delivery-pdf-downloaded',
+      'critical-result-detected',
+      'critical-review-resolved',
+      'ai-summary-generated',
+      'ai-summary-flagged',
+      'doctor-pdf-viewed',
+      'doctor-pdf-downloaded',
+      'doctor-consent-updated'
     ]
   },
   report: { type: mongoose.Schema.Types.ObjectId, ref: 'Report', required: true, index: true },

@@ -115,9 +115,11 @@ export async function getReportDetails(identifier, filter = {}) {
       result: parameter.result,
       unit: parameter.unit,
       referenceMin: parameter.referenceMin,
-      referenceMax: parameter.referenceMax
+      referenceMax: parameter.referenceMax,
+      classification: parameter.classification || 'Not evaluated'
     })),
     reportStatus: report.reportStatus,
+    criticalReviewStatus: report.criticalReviewStatus || 'Not required',
     signedAt: report.signedAt,
     pdfAvailable: isPdfAvailable(report)
   };
@@ -151,6 +153,7 @@ export async function listStaffReports(query) {
       orderDate: report.orderId?.orderDate ?? null,
       testNames: report.orderId?.tests.map(({ testName }) => testName) ?? [],
       reportStatus: report.reportStatus,
+      criticalReviewStatus: report.criticalReviewStatus || 'Not required',
       pdfUploaded: Boolean(report.pdfStorageKey),
       pdfAvailable: isPdfAvailable(report),
       signedAt: report.signedAt

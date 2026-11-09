@@ -13,7 +13,7 @@ try {
   await User.findOneAndUpdate(
     { email: env.DEMO_STAFF_EMAIL.toLowerCase() },
     {
-      $set: { name: 'Demo Front Desk', email: env.DEMO_STAFF_EMAIL.toLowerCase(), passwordHash, role: 'staff', isActive: true }
+      $set: { name: 'Demo Front Desk', email: env.DEMO_STAFF_EMAIL.toLowerCase(), passwordHash, role: env.DEMO_STAFF_ROLE, isActive: true }
     },
     { upsert: true, new: true, runValidators: true }
   );

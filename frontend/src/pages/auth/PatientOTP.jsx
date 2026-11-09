@@ -38,7 +38,7 @@ export default function PatientOTP() {
     try {
       const response = await api.post('/auth/patient/verify-otp', { mobile, otp });
       login(response.data.data.token, response.data.data.patient);
-      navigate('/patient', { replace: true });
+      navigate('/patient/activate', { replace: true });
     } catch (verifyError) {
       setError(verifyError.response?.data?.message || 'We could not verify that code. Please try again.');
     } finally {

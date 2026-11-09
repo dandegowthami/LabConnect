@@ -9,14 +9,25 @@ import importRoutes from './routes/importRoutes.js';
 import deliveryRoutes from './routes/deliveryRoutes.js';
 import patientRoutes from './routes/patientRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
+import aiRoutes from './routes/aiRoutes.js';
+import doctorRoutes from './routes/doctorRoutes.js';
+import staffWorkspaceRoutes from './routes/staffWorkspaceRoutes.js';
 
 const app = express();
+
+function isAllowedOrigin(origin) {
+  if (!origin || origin === env.FRONTEND_URL) return true;
+  if (env.NODE_ENV !== 'production') {
+    return /^http:\/\/(?:localhost|127\.0\.0\.1):\d{1,5}$/.test(origin);
+  }
+  return false;
+}
 
 app.disable('x-powered-by');
 app.use(helmet());
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || origin === env.FRONTEND_URL) {
+    if (isAllowedOrigin(origin)) {
       callback(null, true);
       return;
     }
@@ -31,8 +42,10 @@ app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev', {
     const requestPath = req.originalUrl.split('?')[0];
     return requestPath.startsWith('/api/patients/me')
       || requestPath.startsWith('/api/reports/')
-      || requestPath.startsWith('/api/staff/reports')
-      || requestPath.startsWith('/api/delivery/');
+      || requestPath.startsWith('/api/staff/')
+      || requestPath.startsWith('/api/delivery/')
+      || requestPath.startsWith('/api/ai/')
+      || requestPath.startsWith('/api/doctor/');
   }
 }));
 
@@ -42,6 +55,9 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/delivery', deliveryRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/staff', staffWorkspaceRoutes);
+app.use('/api/doctor', doctorRoutes);
 app.use('/api', reportRoutes);
 app.use('/api/import', importRoutes);
 app.use(notFoundHandler);

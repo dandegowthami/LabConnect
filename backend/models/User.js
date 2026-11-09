@@ -13,8 +13,11 @@ const userSchema = new mongoose.Schema({
   },
   mobile: { type: String, match: /^[6-9]\d{9}$/ },
   passwordHash: { type: String, required: true, select: false },
-  role: { type: String, required: true, enum: ['staff', 'admin'], default: 'staff' },
+  role: { type: String, required: true, enum: ['staff', 'admin', 'pathologist', 'doctor'], default: 'staff' },
+  doctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Doctor', default: null },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
+
+userSchema.index({ doctorId: 1 }, { unique: true, partialFilterExpression: { doctorId: { $type: 'objectId' } } });
 
 export default mongoose.model('User', userSchema);

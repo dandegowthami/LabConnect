@@ -1,4 +1,5 @@
 import { RefreshCw, RotateCw, ShieldOff } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function DeliveryHistory({
   logs,
@@ -47,7 +48,7 @@ export default function DeliveryHistory({
             <tbody>
               {logs.map((log) => (
                 <tr key={log.id}>
-                  <th scope="row">{log.reportId}</th>
+                  <th scope="row"><Link to={`/staff/report/${encodeURIComponent(log.reportId)}`}>{log.reportId}</Link></th>
                   <td>{log.patientName}</td>
                   <td>{log.destinationMasked}</td>
                   <td>{log.channel}</td>

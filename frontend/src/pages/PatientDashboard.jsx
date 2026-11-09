@@ -59,9 +59,11 @@ export default function PatientDashboard() {
           <section className="portal-alert alert alert-warning" role="alert">
             <h2>{error.toLowerCase().includes('identity verification') ? 'Patient identity verification required' : 'Your records could not be loaded'}</h2>
             <p>{error} {error.toLowerCase().includes('identity verification')
-              ? 'Verifying a shared mobile number confirms contact only; it does not identify which family member owns a record. Contact the laboratory to complete patient identity verification.'
+              ? 'Verifying a shared mobile number confirms contact only. Use your patient ID, portal password, and clinic activation code (first-time setup) to verify which family member owns this profile.'
               : 'Please check your connection and try again.'}</p>
-            <button type="button" className="secondary-button btn" onClick={loadDashboard}><RefreshCw size={17} /> Try again</button>
+            {error.toLowerCase().includes('identity verification')
+              ? <Link className="primary-button btn" to="/patient/activate">Verify my patient profile</Link>
+              : <button type="button" className="secondary-button btn" onClick={loadDashboard}><RefreshCw size={17} /> Try again</button>}
           </section>
         )}
 

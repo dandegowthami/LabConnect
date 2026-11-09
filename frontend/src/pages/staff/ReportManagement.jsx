@@ -139,6 +139,8 @@ export default function ReportManagement() {
                   <p><strong>Order:</strong> {selected.orderId} · {selected.orderDate ? new Date(selected.orderDate).toLocaleDateString() : 'Date unavailable'}</p>
                   <p><strong>Tests:</strong> {selected.testNames.join(', ') || 'No test names available'}</p>
                   <p><strong>Status:</strong> {selected.reportStatus} {selected.pdfUploaded ? '· PDF uploaded' : '· No PDF uploaded'}</p>
+                  <p><strong>Critical review:</strong> {selected.criticalReviewStatus || 'Not required'}</p>
+                  <Link className="btn btn-outline-primary" to={`/staff/report/${encodeURIComponent(selected.reportId)}`}>Delivery and access history</Link>
                 </article>
               )}
               {selected && !selected.pdfUploaded && (

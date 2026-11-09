@@ -7,8 +7,11 @@ import app from '../app.js';
 import { env } from '../config/env.js';
 import OTP from '../models/OTP.js';
 import Patient from '../models/Patient.js';
+import PatientAuditEvent from '../models/PatientAuditEvent.js';
+import PatientContactSession from '../models/PatientContactSession.js';
+import PatientPortalActivation from '../models/PatientPortalActivation.js';
 import User from '../models/User.js';
-import { requestOtpLimiter, staffLoginLimiter, verifyOtpLimiter } from '../routes/authRoutes.js';
+import { identifyPatientLimiter, requestOtpLimiter, staffLoginLimiter, verifyOtpLimiter } from '../routes/authRoutes.js';
 import { hashOtp } from '../services/otpService.js';
 
 const registeredMobile = '9876543210';
@@ -37,14 +40,21 @@ async function requestOtp(mobile = registeredMobile) {
 }
 
 function resetLimiters() {
-  for (const limiter of [requestOtpLimiter, verifyOtpLimiter, staffLoginLimiter]) {
+  for (const limiter of [requestOtpLimiter, verifyOtpLimiter, identifyPatientLimiter, staffLoginLimiter]) {
     limiter.resetKey('::ffff:127.0.0.1');
     limiter.resetKey('127.0.0.1');
   }
 }
 
 beforeEach(async () => {
-  await Promise.all([OTP.deleteMany({}), Patient.deleteMany({}), User.deleteMany({})]);
+  await Promise.all([
+    OTP.deleteMany({}),
+    PatientContactSession.deleteMany({}),
+    PatientPortalActivation.deleteMany({}),
+    PatientAuditEvent.deleteMany({}),
+    Patient.deleteMany({}),
+    User.deleteMany({})
+  ]);
   resetLimiters();
 });
 
@@ -55,6 +65,24 @@ describe('health and patient OTP', () => {
     const response = await request(app).get('/api/health');
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
+  });
+
+  it('allows the Vite development origin on a non-default port', async () => {
+    const response = await request(app)
+      .options('/api/auth/patient/request-otp')
+      .set('Origin', 'http://localhost:5174')
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'content-type');
+    expect(response.status).toBe(204);
+    expect(response.headers['access-control-allow-origin']).toBe('http://localhost:5174');
+  });
+
+  it('rejects non-local development origins', async () => {
+    const response = await request(app)
+      .options('/api/auth/patient/request-otp')
+      .set('Origin', 'http://example.test')
+      .set('Access-Control-Request-Method', 'POST');
+    expect(response.status).toBe(403);
   });
 
   it('requests an OTP for a registered Indian mobile and stores only a hash', async () => {
@@ -92,6 +120,188 @@ describe('health and patient OTP', () => {
     expect(claims.role).toBe('patient');
     expect(claims.sub).toMatch(/^patient-contact:/);
     expect(claims.sub).not.toContain(registeredMobile);
+    expect(claims.contactSessionId).toBeTruthy();
+    expect(claims.patientId).toBeUndefined();
+    expect(await PatientContactSession.countDocuments({ mobile: registeredMobile })).toBe(1);
+  });
+
+  it('lets staff issue a one-time code after identity verification and binds only the selected family member', async () => {
+    const firstPatient = await seedPatient();
+    const secondPatient = await Patient.create({
+      patientId: `PAT-${new mongoose.Types.ObjectId().toString()}`,
+      fullName: 'Another Synthetic Patient',
+      mobile: registeredMobile
+    });
+    const staff = await seedStaff();
+    const staffLogin = await request(app).post('/api/auth/staff/login')
+      .send({ email: staff.email, password: 'DemoPassword123' });
+
+    const missingIdentityConfirmation = await request(app)
+      .post(`/api/staff/patients/${firstPatient.patientId}/portal-activation`)
+      .set('Authorization', `Bearer ${staffLogin.body.data.token}`)
+      .send({});
+    expect(missingIdentityConfirmation.status).toBe(400);
+
+    const issued = await request(app)
+      .post(`/api/staff/patients/${firstPatient.patientId}/portal-activation`)
+      .set('Authorization', `Bearer ${staffLogin.body.data.token}`)
+      .send({ identityVerified: true });
+    expect(issued.status).toBe(201);
+    expect(issued.body.data.activationCode).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const activation = await PatientPortalActivation.findOne({ patientId: firstPatient._id }).select('+codeHash');
+    expect(activation.codeHash).not.toBe(issued.body.data.activationCode);
+    expect(await PatientAuditEvent.countDocuments({ patientId: firstPatient._id, action: 'portal-activation-issued' })).toBe(1);
+
+    const sent = await requestOtp();
+    const contactLogin = await request(app).post('/api/auth/patient/verify-otp').send({
+      mobile: registeredMobile,
+      otp: sent.body.data.developmentOtp
+    });
+    const wrongFamilyProfile = await request(app).post('/api/auth/patient/identify')
+      .set('Authorization', `Bearer ${contactLogin.body.data.token}`)
+      .send({
+        patientId: secondPatient.patientId,
+        activationCode: issued.body.data.activationCode,
+        password: 'MyPrivatePortalPassphrase',
+        portalConsentAccepted: true
+      });
+    expect(wrongFamilyProfile.status).toBe(403);
+    const activated = await request(app).post('/api/auth/patient/identify')
+      .set('Authorization', `Bearer ${contactLogin.body.data.token}`)
+      .send({
+        patientId: firstPatient.patientId,
+        activationCode: issued.body.data.activationCode,
+        password: 'MyPrivatePortalPassphrase',
+        portalConsentAccepted: true
+      });
+
+    expect(activated.status).toBe(200);
+    expect(activated.body.data.patient).toMatchObject({
+      patientId: firstPatient.patientId,
+      identityVerified: true
+    });
+    const claims = jwt.verify(activated.body.data.token, env.JWT_SECRET);
+    expect(claims.patientId).toBe(String(firstPatient._id));
+    expect(claims.patientId).not.toBe(String(secondPatient._id));
+    expect((await Patient.findById(firstPatient._id)).portalConsentVersion).toBe('portal-privacy-v1');
+    expect(await PatientAuditEvent.countDocuments({ patientId: firstPatient._id, action: 'portal-account-activated' })).toBe(1);
+    expect((await request(app).get('/api/patients/me')
+      .set('Authorization', `Bearer ${activated.body.data.token}`)).status).toBe(200);
+
+    const replay = await request(app).post('/api/auth/patient/identify')
+      .set('Authorization', `Bearer ${contactLogin.body.data.token}`)
+      .send({
+        patientId: firstPatient.patientId,
+        activationCode: issued.body.data.activationCode,
+        password: 'AnotherPrivatePassphrase',
+        portalConsentAccepted: true
+      });
+    expect(replay.status).toBe(403);
+  });
+
+  it('locks an activation code after five incorrect attempts', async () => {
+    const patient = await seedPatient();
+    const staff = await seedStaff();
+    const staffLogin = await request(app).post('/api/auth/staff/login')
+      .send({ email: staff.email, password: 'DemoPassword123' });
+    const issued = await request(app)
+      .post(`/api/staff/patients/${patient.patientId}/portal-activation`)
+      .set('Authorization', `Bearer ${staffLogin.body.data.token}`)
+      .send({ identityVerified: true });
+    const sent = await requestOtp();
+    const contactLogin = await request(app).post('/api/auth/patient/verify-otp').send({
+      mobile: registeredMobile,
+      otp: sent.body.data.developmentOtp
+    });
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await request(app).post('/api/auth/patient/identify')
+        .set('Authorization', `Bearer ${contactLogin.body.data.token}`)
+        .send({
+          patientId: patient.patientId,
+          activationCode: 'a'.repeat(43),
+          password: 'MyPrivatePortalPassphrase',
+          portalConsentAccepted: true
+        });
+    }
+
+    const denied = await request(app).post('/api/auth/patient/identify')
+      .set('Authorization', `Bearer ${contactLogin.body.data.token}`)
+      .send({
+        patientId: patient.patientId,
+        activationCode: issued.body.data.activationCode,
+        password: 'MyPrivatePortalPassphrase',
+        portalConsentAccepted: true
+      });
+    expect(denied.status).toBe(401);
+    expect((await PatientPortalActivation.findOne({ patientId: patient._id })).attempts).toBe(5);
+  });
+
+  it('requires the clinic activation code and separate portal consent for first-time setup', async () => {
+    const patient = await seedPatient();
+    const staff = await seedStaff();
+    const staffLogin = await request(app).post('/api/auth/staff/login')
+      .send({ email: staff.email, password: 'DemoPassword123' });
+    const issued = await request(app)
+      .post(`/api/staff/patients/${patient.patientId}/portal-activation`)
+      .set('Authorization', `Bearer ${staffLogin.body.data.token}`)
+      .send({ identityVerified: true });
+    const sent = await requestOtp();
+    const contactLogin = await request(app).post('/api/auth/patient/verify-otp').send({
+      mobile: registeredMobile,
+      otp: sent.body.data.developmentOtp
+    });
+
+    const response = await request(app).post('/api/auth/patient/identify')
+      .set('Authorization', `Bearer ${contactLogin.body.data.token}`)
+      .send({
+        patientId: patient.patientId,
+        activationCode: issued.body.data.activationCode,
+        password: 'MyPrivatePortalPassphrase'
+      });
+    expect(response.status).toBe(400);
+    expect(await Patient.findById(patient._id).select('+portalPasswordHash')).toMatchObject({ portalPasswordHash: null });
+  });
+
+  it('requires the patient password after activation, even with a valid shared phone OTP', async () => {
+    const patient = await seedPatient();
+    const staff = await seedStaff();
+    const staffLogin = await request(app).post('/api/auth/staff/login')
+      .send({ email: staff.email, password: 'DemoPassword123' });
+    const issued = await request(app)
+      .post(`/api/staff/patients/${patient.patientId}/portal-activation`)
+      .set('Authorization', `Bearer ${staffLogin.body.data.token}`)
+      .send({ identityVerified: true });
+    const firstOtp = await requestOtp();
+    const firstContact = await request(app).post('/api/auth/patient/verify-otp').send({
+      mobile: registeredMobile,
+      otp: firstOtp.body.data.developmentOtp
+    });
+    const initialLogin = await request(app).post('/api/auth/patient/identify')
+      .set('Authorization', `Bearer ${firstContact.body.data.token}`)
+      .send({
+        patientId: patient.patientId,
+        activationCode: issued.body.data.activationCode,
+        password: 'MyPrivatePortalPassphrase',
+        portalConsentAccepted: true
+      });
+    expect(initialLogin.status).toBe(200);
+
+    const nextOtp = await requestOtp();
+    const nextContact = await request(app).post('/api/auth/patient/verify-otp').send({
+      mobile: registeredMobile,
+      otp: nextOtp.body.data.developmentOtp
+    });
+    const denied = await request(app).post('/api/auth/patient/identify')
+      .set('Authorization', `Bearer ${nextContact.body.data.token}`)
+      .send({ patientId: patient.patientId, password: 'WrongPassphrase123' });
+    expect(denied.status).toBe(403);
+
+    const allowed = await request(app).post('/api/auth/patient/identify')
+      .set('Authorization', `Bearer ${nextContact.body.data.token}`)
+      .send({ patientId: patient.patientId, password: 'MyPrivatePortalPassphrase' });
+    expect(allowed.status).toBe(200);
+    expect(jwt.verify(allowed.body.data.token, env.JWT_SECRET).patientId).toBe(String(patient._id));
   });
 
   it('rejects incorrect OTPs', async () => {

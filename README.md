@@ -1,6 +1,6 @@
 # LabConnect
 
-LabConnect is a local development foundation for authenticated staff workflows, LIS imports, private report storage, and OTP-verified expiring report links. Phone verification alone does not identify a specific family member; patient dashboard APIs remain fail-closed until a separate patient identity verification workflow is integrated.
+LabConnect is a local development foundation for authenticated laboratory staff, patients, and referring doctors. It includes LIS imports, private PDF report handling, expiring OTP-protected report links, deterministic abnormal-result classification, multilingual AI explanation APIs, callback review, and staff/doctor workspaces. Patient record access requires mobile OTP and an individually activated portal account, so a shared family phone number alone cannot select a patient's records.
 
 ## Technology
 
@@ -56,7 +56,7 @@ npm run seed:staff
 
 No staff password is included in source or documentation. Staff passwords are stored as bcrypt hashes. Seeded patient information is synthetic. Two synthetic patients intentionally share a phone number to demonstrate that phone verification alone does not identify a patient.
 
-With the mock OTP provider, the API response includes `developmentOtp` only outside production. It is generated per request, stored as a bcrypt hash, expires after five minutes, and may be used once. Production rejects `OTP_PROVIDER=mock`. An SMS adapter is not configured in this initial module; setting `OTP_PROVIDER=sms` returns a clear service-unavailable error until one is integrated.
+With the mock OTP provider, the API response includes `developmentOtp` only outside production. It is generated per request, stored as a bcrypt hash, expires after five minutes, and may be used once. Production rejects `OTP_PROVIDER=mock`. No SMS adapter is configured; setting `OTP_PROVIDER=sms` returns a clear service-unavailable error until one is integrated.
 
 ## Run locally
 
@@ -118,6 +118,10 @@ Staff-only API endpoints (all require `Authorization: Bearer <token>`):
 | POST | `/api/import/lis/commit` | Commits validated staged rows; JSON body: `{ "previewId": "..." }` |
 | GET | `/api/import/history?page=1&limit=10` | Paginated import summaries, newest first |
 | GET | `/api/import/:id` | One import summary and its row-level errors |
+| POST | `/api/auth/patient/request-otp` | Request phone contact verification |
+| POST | `/api/auth/patient/verify-otp` | Verify OTP and create a short-lived contact-only session |
+| POST | `/api/auth/patient/identify` | Bind the OTP session to a patient ID using activation code/password |
+| POST | `/api/staff/patients/:patientId/portal-activation` | Staff-only, in-person-verified one-time activation code |
 
 Seed three synthetic patients, doctors, orders and report metadata records with stable IDs (re-running is idempotent):
 
@@ -146,7 +150,7 @@ Uploaded files are validated as PDFs using their content and a PDF parser. In de
 | POST | `/api/staff/reports/:reportId/upload-pdf` | Staff-only multipart upload (`file` field) |
 | POST | `/api/staff/reports/:reportId/confirm-signed` | Staff-only explicit sign-off and Ready action |
 
-Patient routes filter by the database patient ID in a trusted, identity-bound patient token; they never accept a patient ID from the browser or use a mobile number to select a record. Existing OTP login only verifies phone contact and intentionally issues a contact-only token, because multiple people can share one number. Consequently, patient record endpoints currently fail closed with `403 Patient identity verification is required`; completing the patient dashboard requires a separate identity-verification/selection workflow before issuing an identity-bound token. Do not treat OTP contact verification as patient identity or work around this limitation with a mobile-number lookup. Patient routes and frontend are in place for that later identity integration, but access is not enabled by OTP alone. For identity-bound sessions, report results/details and PDFs are withheld until the report is Ready, signed, and has a valid private PDF; order/report status summaries remain available.
+Patient routes use only the patient ID in a trusted, identity-bound token; they never select records by mobile number. OTP verifies phone contact but not which family member owns the record. To link a profile, staff must first verify the patient in person and issue a one-time activation code from the staff patient record. The code is shown once, stored as a hash, expires after 24 hours, and is limited to five attempts. Staff must give it directly to the verified patient, not send it to the shared phone. After OTP, the patient enters the patient ID, code, a private password, and accepts the separate patient-portal privacy notice. Later sign-ins require mobile OTP, patient ID, and that password. Portal privacy acceptance is separate from consent to share reports with referring doctors. Activation and identity authentication are audited. Do not issue activation codes without the laboratory's documented identity check. Report results and PDFs remain unavailable unless the report is Ready, signed, and has a valid private PDF.
 
 Staff and admin roles may manage PDFs. Patients may access a report or its PDF only when the authenticated patient ID owns it, the report is Ready, and a valid signed PDF is associated. Report upload, sign-off, view, and download actions are recorded as minimal audit events (action, report reference, actor ID and timestamp; no report contents). PDF responses use `Cache-Control: private, no-store` and are never redirected to public URLs.
 
@@ -169,7 +173,23 @@ Staff can use **Secure delivery history** (`/staff/delivery`) to send links to R
 | GET | `/api/delivery/access/report` | Stream the bound private PDF inline; requires `X-Report-Access-Grant` |
 | GET | `/api/delivery/access/report/download` | Download the bound private PDF; requires `X-Report-Access-Grant` |
 
-Local test instructions are unchanged: from `backend/` run `npm test`; from `frontend/` run `npm test` and `npm run build`. For real delivery, implement and configure a production SMS/WhatsApp provider, secure credential storage, delivery callbacks/retries and operational monitoring; the mock adapter is deliberately disabled in production and is not a production messaging integration. Private production PDF storage also remains unconfigured. Patient OTP login remains contact-only and is distinct from report-link OTP; shared mobile numbers do not widen a report access grant.
+Local test instructions are unchanged: from `backend/` run `npm test`; from `frontend/` run `npm test` and `npm run build`. For real delivery, implement and configure a production SMS/WhatsApp provider, secure credential storage, delivery callbacks/retries and operational monitoring; the mock adapter is deliberately disabled in production and is not a production messaging integration. Private production PDF storage also remains unconfigured. Patient portal login uses contact OTP plus a patient-specific password after one-time, staff-verified account activation. Report-link OTP remains separately scoped to one report.
+
+## Abnormal results, AI explanations, and critical callbacks
+
+On report sign-off, the backend compares each result with its supplied reference range and stores the original result, unit, range, and deterministic classification. Missing or invalid reference ranges are reported as unavailable. The application does not invent clinical thresholds. Staff can propose critical thresholds, but only a pathologist can approve them; there are no preloaded clinical or demo thresholds. An approved critical match marks the report for urgent review, creates a callback task, records an audit event, and bypasses patient-facing AI generation.
+
+AI explanations use a configurable OpenAI-compatible backend API. Set `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL`, and an HTTPS `AI_API_BASE_URL` in the backend environment; `AI_TIMEOUT_MS` is optional. The provider receives only classified laboratory values, units, and reference ranges. Structured JSON is validated before saving and cached by report, language, and source fingerprint. Supported languages are English (`en`), Telugu (`te`), and Hindi (`hi`). The prompt prohibits diagnosis and treatment advice and requires consultation with a doctor and deference to the full signed report. Provider failures produce an explicit unavailable status; the application does not substitute a fabricated response.
+
+The patient report UI includes the language and flagging workflow. Patient record and AI routes require an identity-bound session issued after in-person staff activation and patient-specific password verification. Staff can review flagged summaries through callback management.
+
+## Staff workspace and referring doctor portal
+
+Staff dashboards use database-derived metrics. Authorized staff can search patients and orders with pagination and masked phone numbers, view report and delivery history, assign and resolve callback tasks, review patient-flagged summaries, propose critical rules, and provision doctor accounts. Critical tasks require resolution notes. Staff workflows do not provide a way to change original laboratory values.
+
+Doctor accounts are provisioned by authorized staff; public doctor registration is not available. Doctors have a separate login and can access only reports whose order explicitly references their linked doctor record, whose patient has granted doctor access, and whose order date is within the default 90-day window. These checks are enforced by backend APIs, including report detail and PDF streaming. Doctor access reuses the private PDF storage and does not expose storage keys.
+
+New API families include `/api/ai`, `/api/staff`, and `/api/doctor`. They use the existing authentication middleware and role checks. See the corresponding route files for the exact endpoint list and request validation.
 
 ## Tests
 
@@ -190,4 +210,8 @@ npm run build
 
 ## Scope and deployment
 
-This is a local development foundation, not a production-ready medical records system. Before deployment, configure a production SMS provider, secret management, HTTPS, monitoring, privacy/compliance controls, and patient-specific identity/authorization. Production mode rejects the mock OTP provider.
+This is a local development foundation, not a production-ready medical records system. Modules 5–6 and the associated UI integration are implemented locally and covered by automated tests, but there is no configured live AI credential, production SMS/OTP provider, private persistent production PDF storage adapter, or deployed environment. Patient portal activation is implemented, but the laboratory must perform its in-person identity check; the software cannot independently validate physical identity.
+
+Production mode rejects the mock OTP provider and private PDF operations fail closed until a production storage adapter is configured. Before handling real patient information, configure and verify persistent private storage, a production OTP provider, secret management, HTTPS, monitoring, privacy/compliance controls, and patient-specific identity/authorization. Do not claim legal compliance or data residency without independent review and verification.
+
+The current verified local checks are 84 backend tests, 26 frontend tests, a successful frontend production build, and browser smoke checks for public pages and role-specific sign-in redirects. The configured MongoDB connection and API health endpoint were also verified; no business records were read or changed during that check. These checks do not prove deployment readiness or verify external providers. See [`deployment.md`](./deployment.md) for setup, environment variables, deployment prerequisites and release blockers. The Technical Design Document records the implemented workflows, actual test results, assumptions, and limitations.

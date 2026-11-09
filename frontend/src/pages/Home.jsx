@@ -11,7 +11,10 @@ export default function Home() {
         </Link>
         <nav className="site-nav" aria-label="Main navigation">
           <a href="#how-it-works">How it works</a>
-          <Link className="header-sign-in" to="/patient/login">Patient sign in</Link>
+          <div className="d-flex align-items-center gap-3">
+            <Link className="header-sign-in" to="/doctor/login">Doctor sign in</Link>
+            <Link className="header-sign-in" to="/patient/login">Patient sign in</Link>
+          </div>
         </nav>
       </header>
 

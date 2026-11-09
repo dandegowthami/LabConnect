@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowDownToLine, ArrowLeft, Eye } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import reportService from '../../services/reportService.js';
+import AIExplanationPanel from '../../components/patient/AIExplanationPanel.jsx';
 
 function saveBlob(blob, filename) {
   const objectUrl = URL.createObjectURL(blob);
@@ -64,13 +65,16 @@ export default function ReportDetails() {
                 <div><dt>Report ID</dt><dd>{report.reportId}</dd></div>
                 <div><dt>Report date</dt><dd>{report.signedAt ? new Date(report.signedAt).toLocaleDateString() : 'Not signed'}</dd></div>
                 <div><dt>Availability</dt><dd>{report.pdfAvailable ? 'Signed report available' : 'Not ready'}</dd></div>
+                <div><dt>Critical review</dt><dd>{report.criticalReviewStatus || 'Not required'}</dd></div>
               </dl>
               <div className="table-responsive">
                 <table className="table report-results">
                   <thead><tr><th scope="col">Test</th><th scope="col">Result</th><th scope="col">Unit</th><th scope="col">Reference range</th></tr></thead>
                   <tbody>
                     {report.tests.map((test) => {
-                      const outsideRange = test.result < test.referenceMin || test.result > test.referenceMax;
+                      const outsideRange = test.classification
+                        ? ['Below reference range', 'Above reference range', 'Critical'].includes(test.classification)
+                        : test.result < test.referenceMin || test.result > test.referenceMax;
                       return (
                         <tr className={outsideRange ? 'result-outside-range' : ''} key={test.testName}>
                           <th scope="row">{test.testName}</th>
@@ -91,6 +95,13 @@ export default function ReportDetails() {
                 ) : <p className="portal-pending">PDF actions will be available when the signed report is ready.</p>}
                 <Link className="back-link" to="/patient/dashboard"><ArrowLeft size={18} /> Back to dashboard</Link>
               </div>
+              {report.pdfAvailable && (
+                <AIExplanationPanel
+                  reportId={report.reportId}
+                  tests={report.tests}
+                  criticalReviewStatus={report.criticalReviewStatus}
+                />
+              )}
             </>
           )}
         </section>

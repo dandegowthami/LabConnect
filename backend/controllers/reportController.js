@@ -7,6 +7,7 @@ import { deletePrivatePdf, openPrivatePdf, storePrivatePdf, validatePdf, validat
 import { findReportByIdentifier, getReportDetails, isPdfAvailable, listStaffReports } from '../services/reportService.js';
 import { sendReportDelivery } from '../services/deliveryService.js';
 import DeliveryLog from '../models/DeliveryLog.js';
+import { evaluateCriticalResults } from '../services/criticalReviewService.js';
 
 function notFound(res) {
   res.status(404).json({ success: false, message: 'Report not found' });
@@ -251,6 +252,8 @@ export async function confirmReportSigned(req, res, next) {
       return;
     }
 
+    await evaluateCriticalResults(updatedReport, req.auth.sub);
+
     let delivery;
     try {
       delivery = await sendReportDelivery({
@@ -270,6 +273,7 @@ export async function confirmReportSigned(req, res, next) {
       data: {
         reportId: updatedReport.reportId,
         reportStatus: updatedReport.reportStatus,
+        criticalReviewStatus: updatedReport.criticalReviewStatus,
         signedAt,
         delivery: {
           channel: delivery.channel || 'SMS',
